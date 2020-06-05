@@ -11,7 +11,8 @@ Building:
   . pull.sh
 3) go to the yamb folder, execute the commands:
   docker build -t dltc/libsourcey-base dep_Docker
-  docker build -t dltc/yamb .
+  docker build -t dltc/yamb . 
+  docker build -t dltc/yambnode -f Dockerfile2 . 
 Launch:
 1) go to the mongo folder:
   . run_mongo.sh
