@@ -8,11 +8,10 @@ WORKDIR . /app
 
 COPY package*.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
-RUN mv .env.example .env
 COPY ./start.sh /
 RUN chmod +x /start.sh
 CMD ["/start.sh"]

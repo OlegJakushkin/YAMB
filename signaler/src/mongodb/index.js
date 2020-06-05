@@ -2,7 +2,8 @@ const Env = use("Env");
 const MongoClient = require("mongodb").MongoClient;
 
 // Connection URL
-const url = Env.get("MONGO_URL", "mongodb://172.27.27.43:8703");
+const url = Env.get("MONGO_URL", "mongodb://localhost:8703");
+console.log('URL', url)
 
 // Database Name
 const dbName = "reestr";
@@ -10,8 +11,11 @@ const dbName = "reestr";
 let db = null;
 
 const restarter = () => {
-  MongoClient.connect(url, function(err, client) {
+  MongoClient.connect(url, { native_parser:true }, function(err, client) {
+	  
+	  
     if (err) {
+		console.log(err, client)
       setTimeout(restarter, 1000);
     }
 

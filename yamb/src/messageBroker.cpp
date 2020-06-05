@@ -60,7 +60,7 @@ public:
     app = new WebrtcNode(c);
   }
 
-  void start() {
+  void start(std::string password) {
 //    std::mutex m;
 //    std::condition_variable cv;
 //    std::unique_lock<std::mutex> lkt(m);
@@ -69,12 +69,28 @@ public:
 //    auto t = std::thread([this, &cv, &inited]() {
 //      inited = true;
 //      cv.notify_all();
-    app->start();
+    app->start(password);
 //    });
 //
 //    while (!inited)
 //      cv.wait(lkt);
   }
+
+    void start() {
+//    std::mutex m;
+//    std::condition_variable cv;
+//    std::unique_lock<std::mutex> lkt(m);
+//    std::atomic<bool> inited(false);
+//
+//    auto t = std::thread([this, &cv, &inited]() {
+//      inited = true;
+//      cv.notify_all();
+        app->start("qwerty");
+//    });
+//
+//    while (!inited)
+//      cv.wait(lkt);
+    }
 
 
   void addCallbackToRoom(const std::string &roomId, messageHandler *callback) {
@@ -158,9 +174,9 @@ messageBroker::~messageBroker() {
   std::cout << "Destructor is ended" << std::endl;
 }
 
-void messageBroker::start() {
+void messageBroker::start(std::string password) {
   if (api)
-    api->start();
+    api->start(password);
 }
 
 void messageBroker::addCallbackToRoom(const std::string &roomId, messageHandler *callback) {
@@ -199,17 +215,17 @@ void messageBroker::exit() {
   api->exit();
 }
 
-std::shared_ptr<messageBroker> messageBroker::Create(nodeConfig conf) {
+std::shared_ptr<messageBroker> messageBroker::Create(nodeConfig conf, std::string password) {
   std::mutex m;
   std::condition_variable cv;
   std::unique_lock<std::mutex> lkt(m);
   std::atomic<bool> inited(false);
   std::shared_ptr<messageBroker> MB;
-  std::thread([&cv, &MB, &inited, &conf]() {
+  std::thread([&cv, &MB, &inited, &conf, &password]() {
     MB = std::make_shared<messageBroker>(conf);
     inited = true;
     cv.notify_all();
-    MB->start();
+    MB->start(password);
     std::cout << "I am here" << std::endl;
   }).detach();
 

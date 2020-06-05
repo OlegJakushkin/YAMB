@@ -242,7 +242,10 @@ int main(int argc, char **argv) {
   c1.openPortsEnd = 0;
   c1.sqlite3Path = "sqlite3";
   c1.hashSeed = "seedvalue";
-  A = messageBroker::Create(c1);
+    std::cout << "Введите пароль:" << std::endl;
+    std::string pswd;
+    std::cin >> pswd;
+  A = messageBroker::Create(c1, pswd);
   menu();
 //  std::vector<std::shared_ptr<messageBroker>> v;
 //  for (int i = 0; i < 10; ++i) {

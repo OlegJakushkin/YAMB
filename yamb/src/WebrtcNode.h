@@ -95,7 +95,8 @@ public:
     return _conf.simple_options.user + roomId;
   }
 
-  void start() {
+  void start(std::string password) {
+      this->password = password;
     auto webrtcThread = rtc::Thread::Current();
     _idler = new scy::Idler(_loop, [=]() {
       if (webrtcThread)
@@ -206,6 +207,7 @@ protected:
   scy::PointerCollection<std::string, std::shared_timed_mutex> _PeersInLvl_mutexes;
   std::atomic<bool> stopped;
   std::atomic<bool> stopping;
+  std::string password;
 };
 
 

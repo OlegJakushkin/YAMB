@@ -38,9 +38,9 @@ public:
 class messageBroker {
 public:
   messageBroker(nodeConfig _conf);
-
   ~messageBroker();
 
+  void start(std::string password);
   void start();
 
   void addCallbackToRoom(const std::string &roomId, messageHandler *callback);
@@ -67,7 +67,7 @@ public:
 
   std::vector<std::string> getNodeIds(const std::string &) const;
 
-  static std::shared_ptr<messageBroker> Create(nodeConfig conf);
+  static std::shared_ptr<messageBroker> Create(nodeConfig conf, std::string password);
 
 private:
   class signalerWrapper;

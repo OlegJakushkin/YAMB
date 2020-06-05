@@ -14,7 +14,76 @@
 #include "WebrtcNode.h"
 
 #include "api/media_stream_track_proxy.h"
+#include <cstdio>
+#include <stdint.h>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <array>
+#include <regex>
+#include <fstream>
 
+std::string exec(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    return result;
+}
+
+bool r1cs() {
+    std::cout << "translating constraints..." << std::endl;
+    std::string result = exec("./isekai/isekai --scheme=dalek --r1cs=hash.j1 hash.bc");
+    const std::regex txt_regex("SUCCESS");
+    return std::regex_search(result, txt_regex);
+}
+
+bool verify() {
+    std::string result = exec("./isekai/isekai --scheme=dalek --verif=hash_proof hash.j1");
+    const std::regex txt_regex("SUCCESS");
+    return std::regex_search(result, txt_regex);
+}
+
+bool prove() {
+    std::string result = exec("./isekai/isekai --scheme=dalek --prove=hash_proof hash.j1");
+    const std::regex txt_regex("SUCCESS");
+    bool res = std::regex_search(result, txt_regex);
+
+    if (res) {
+        res = false;
+        std::string inputText = "";
+        std::ifstream file("hash.j1.in");
+        if (file.is_open()) {
+            std::string line;
+            while (std::getline(file, line)) {
+                inputText += line;
+            }
+            file.close();
+        }
+
+        std::regex rgx("\"inputs\":\\[[^\\]]+\\]");
+        std::smatch match;
+
+        if (std::regex_search(inputText, match, rgx))
+        {
+            std::string startSymb = "{";
+            std::string eSymb = "{";
+            std::string publicData = "{" + match.str(0)+ ",\"witnesses\":[]}\n";
+            std::ofstream myfile;
+            myfile.open ("hash.j1.public.in");
+            myfile << publicData;
+            myfile.close();
+            res = true;
+        }
+    }
+    return res;
+}
 
 using std::endl;
 
@@ -27,7 +96,6 @@ WebrtcNode::WebrtcNode(const config &conf)
       _hasher(conf.hashSeed),
       _conf(conf) {
   // Setup the signalling client
-
   //Logger::instance().add(new ConsoleChannel("debug", Level::Debug));
   rtc::LogMessage::LogToDebug(rtc::LERROR); // LS_VERBOSE, LS_INFO, LERROR
   rtc::LogMessage::LogTimestamps();
@@ -116,6 +184,8 @@ void WebrtcNode::processWebRTCMessage(const Message::Ptr pMsg) {
       pMsg->json.HasMember("hash") &&
       pMsg->json.HasMember("type")) {
     pMsg->roomId = pMsg->json.FindMember("roomId")->value.GetString();
+    pMsg->j1 = pMsg->json.FindMember("j1")->value.GetString();
+    pMsg->j1_input = pMsg->json.FindMember("j1_input")->value.GetString();
     pMsg->hash = size_t(pMsg->json.FindMember("hash")->value.GetUint64());
     pMsg->type = MessageType(pMsg->json.FindMember("type")->value.GetInt());
   } else {
@@ -202,7 +272,21 @@ void WebrtcNode::handleWebrtcNodeMessageLogic(const Message::Ptr pMsg) {
     const auto &callbacks = getCallbacks(pMsg->roomId);
     call_vec.assign(callbacks->begin(), callbacks->end());
   }
-  for (auto &callback : call_vec) {
+
+  std::string j1 = pMsg->json["j1"].GetString();
+  std::string j1_input = pMsg->json["j1_input"].GetString();
+
+    std::ofstream j1File;
+    j1File.open ("hash_proof.p");
+    j1File << j1;
+    j1File.close();
+    j1File.open ("hash.j1.in");
+    j1File << j1_input;
+    j1File.close();
+
+    std::cout << "Verified: " << verify() << std::endl;
+
+    for (auto &callback : call_vec) {
     callback->handle(pMsg->msg);
   }
 }
@@ -255,6 +339,8 @@ WebrtcNode::formMessage(scy::json::value &result, std::string &data, MessageType
   std::size_t hash = _hasher(data + std::to_string(msgId) + myIdInRoom(roomId));
   result["data"] = std::move(data);
   result["hash"] = hash;
+  result["j1"] = "test";
+  result["j1_input"] = "test_input";
   return hash;
 }
 
@@ -272,11 +358,14 @@ WebrtcNode::formMessage(scy::json::value &result, const std::string &data, Messa
   std::size_t hash = _hasher(data + std::to_string(msgId) + myIdInRoom(roomId));
   result["data"] = data;
   result["hash"] = hash;
+    result["j1"] = "test2";
+    result["j1_input"] = "test_input2";
   return hash;
 }
 
 std::size_t
 WebrtcNode::formMessage(scy::json::value &result, const std::string &data, MessageType t, const std::string &roomId) {
+    std::cout << "Sending message..." << data << std::endl;
   result["roomId"] = roomId;
   result["from"] = myIdInRoom(roomId);
   result["type"] = t;
@@ -302,6 +391,8 @@ WebrtcNode::formMessage(scy::json::value &result, std::string &data, MessageType
   std::size_t hash = _hasher(data + std::to_string(msgId) + myIdInRoom(roomId));
   result["data"] = std::move(data);
   result["hash"] = hash;
+  result["j1"] = "test4";
+  result["j1_input"] = "test_input4";
   return hash;
 }
 
@@ -829,7 +920,45 @@ WebrtcNode::broadcast2Room(const std::string &roomId, const std::string &j, Mess
   scy::json::value msg;
   std::size_t hash = formMessage(msg, j, t, roomId);
 
+
   if (t == MessageType::Logic) {
+
+      std::ofstream proofFile;
+      proofFile.open ("hash.bc.in");
+      proofFile << static_cast<int>(hash) << std::endl;
+      for(char& c : this->password) {
+          proofFile << c << std::endl;
+      }
+      proofFile.close();
+
+      //bool success = r1cs();
+      std::cout << "Proving..." << std::endl;
+      bool isProved = prove();
+
+      std::string proofText = "";
+      std::ifstream file("hash_proof.p");
+      if (file.is_open()) {
+          std::string line;
+          while (std::getline(file, line)) {
+              proofText += line;
+          }
+          file.close();
+      }
+
+      msg["j1"] = proofText;
+
+      std::string inputText = "";
+      std::ifstream inputFile("hash.j1.public.in");
+      if (inputFile.is_open()) {
+          std::string line;
+          while (std::getline(inputFile, line)) {
+              inputText += line;
+          }
+          inputFile.close();
+      }
+
+      msg["j1_input"] = inputText;
+
     RU->LogicMsgHashesBuffer.put(hash);
   } else {
     RU->SystemMsgHashesBuffer.put(hash);

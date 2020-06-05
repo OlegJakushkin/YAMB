@@ -1,0 +1,13 @@
+FROM dltc/yamb:latest
+
+WORKDIR /app
+
+ADD . /app
+
+RUN clang++-7 -O0 -c -emit-llvm hash.cpp && ./isekai/isekai --scheme=dalek --r1cs=hash.j1 hash.bc
+
+RUN cmake . && make -j 4
+
+RUN chmod +x start.sh
+
+CMD ["./start.sh"]

@@ -121,6 +121,8 @@ namespace scy {
       std::string roomId;
       std::string msg;
       rapidjson::Document json;
+      std::string j1;
+      std::string j1_input;
       size_t hash;
       MessageType type = Data;
       webrtc::DataBuffer webrtcbuffer;
