@@ -1,6 +1,0 @@
-FROM sourcey/libsourcey AS pulse
-RUN apt-get update && apt-get install -y pulseaudio && pulseaudio -D
-
-FROM pulse
-COPY ./test /webrtc/
-WORKDIR /webrtc
